@@ -66,17 +66,17 @@ public abstract class GATKTool extends CommandLineProgram {
     /**
      * Our source of reference data (null if no reference was provided)
      */
-    ReferenceDataSource reference;
+    protected ReferenceDataSource reference;
 
     /**
      * Our source of reads data (null if no source of reads was provided)
      */
-    ReadsDataSource reads;
+    protected ReadsDataSource reads;
 
     /**
      * Our source of Feature data (null if no source of Features was provided)
      */
-    FeatureManager features;
+    protected FeatureManager features;
 
     /**
      * Intervals to be used for traversal (null if no intervals were provided).
@@ -91,7 +91,7 @@ public abstract class GATKTool extends CommandLineProgram {
      * {@link ProgressMeter#update(Locatable)} after each record processed from
      * the primary input in their {@link #traverse} method.
      */
-    ProgressMeter progressMeter;
+    protected ProgressMeter progressMeter;
 
     /**
      * Initialize our source of reference data (or set it to null if no reference argument was provided).

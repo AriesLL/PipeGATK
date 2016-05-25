@@ -79,13 +79,11 @@ public abstract class ReadWalker extends GATKTool {
         System.out.println("disable_all_read_filters " + disable_all_read_filters);
 
         //pp Modify
-        String MyToolName = getClass().getSimpleName();
-        String str = "ApplyBQSR";
-        Boolean runMyCode = true;
 
 
 
-        if(MyToolName.equals(str) && runMyCode) {
+
+        /*if(MyToolName.equals(str) && runMyCode) {
             //ReadTransformer transform;
             System.out.println("start to run modified ApplyBQSR code");
             Iterator<GATKRead> iter  = reads.iterator();
@@ -108,11 +106,11 @@ public abstract class ReadWalker extends GATKTool {
             //System.out.println("test hasNext: " + iter.hasNext());
             logger.info(countedFilter.getSummaryLine());
 
-        }
-        else{
+        }*/
+//        else{
             //original code
-            System.out.println(MyToolName+"show");
-            System.out.println("original flow");
+            //System.out.println(MyToolName+"show");
+            //System.out.println("original flow");
             StreamSupport.stream(reads.spliterator(), false)
                     .filter(countedFilter)
                     .forEach(read -> {
@@ -126,7 +124,7 @@ public abstract class ReadWalker extends GATKTool {
 
             logger.info(countedFilter.getSummaryLine());
 
-        }
+//        }
 
         //StreamSupport.stream(reads.spliterator(), false)
 
@@ -137,7 +135,7 @@ public abstract class ReadWalker extends GATKTool {
      * Note: some walkers must be able to work on any read, including those whose coordinates do not form a valid SimpleInterval.
      * So here we check this condition and create null intervals for such reads.
      */
-    private SimpleInterval getReadInterval(final GATKRead read) {
+    protected SimpleInterval getReadInterval(final GATKRead read) {
         return !read.isUnmapped() && SimpleInterval.isValid(read.getContig(), read.getStart(), read.getEnd()) ? new SimpleInterval(read) : null;
     }
 

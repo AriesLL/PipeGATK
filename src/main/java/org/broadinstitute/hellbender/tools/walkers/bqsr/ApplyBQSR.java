@@ -5,20 +5,26 @@ import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
+
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.ReadProgramGroup;
 import org.broadinstitute.hellbender.engine.FeatureContext;
 import org.broadinstitute.hellbender.engine.ReadWalker;
 import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.tools.ApplyBQSRArgumentCollection;
 import org.broadinstitute.hellbender.transformers.BQSRReadTransformer;
 import org.broadinstitute.hellbender.transformers.ReadTransformer;
+import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.SAMFileGATKReadWriter;
 import org.mortbay.jetty.AbstractGenerator;
 
 import java.io.File;
+import java.util.Iterator;
+import java.util.stream.StreamSupport;
 
 @CommandLineProgramProperties(
         summary = "Applies the BQSR table to the input SAM/BAM/CRAM",
@@ -55,6 +61,64 @@ public final class ApplyBQSR extends ReadWalker{
         outputWriter = createSAMWriter(OUTPUT, true);
         transform = new BQSRReadTransformer(getHeaderForReads(), BQSR_RECAL_FILE, bqsrArgs);
         Utils.warnOnNonIlluminaReadGroups(getHeaderForReads(), logger);
+    }
+
+    //pp modify
+    @Override
+    public void traverse() {
+        final CountingReadFilter countedFilter = disable_all_read_filters ?
+                new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS ) :
+                makeReadFilter();
+        System.out.println("disable_all_read_filters " + disable_all_read_filters);
+
+        //pp Modify
+        String MyToolName = getClass().getSimpleName();
+        String str = "ApplyBQSR";
+        Boolean runMyCode = true;
+
+
+        if(MyToolName.equals(str) && runMyCode) {
+            //ReadTransformer transform;
+            System.out.println("Hello World start to run modified ApplyBQSR code");
+            Iterator<GATKRead> iter  = this.reads.iterator();
+            long counter = 0;
+            while(iter.hasNext())
+            {
+                counter ++;
+                GATKRead read = iter.next();
+                final SimpleInterval readInterval = getReadInterval(read);
+                apply(read,
+                        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
+                        new FeatureContext(features, readInterval));
+                //
+                //GATKRead transformRead =transform.apply(read);
+                //outputWriter.addRead(transformRead);
+                progressMeter.update(readInterval);
+
+            }
+            System.out.println(counter);
+            //System.out.println("test hasNext: " + iter.hasNext());
+            logger.info(countedFilter.getSummaryLine());
+
+        }
+        else{
+            //original code
+            System.out.println(MyToolName+"show");
+            System.out.println("original flow");
+            StreamSupport.stream(reads.spliterator(), false)
+                    .filter(countedFilter)
+                    .forEach(read -> {
+                        final SimpleInterval readInterval = getReadInterval(read);
+                        apply(read,
+                                new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
+                                new FeatureContext(features, readInterval));   // Will create an empty FeatureContext if features or readInterval == null
+
+                        progressMeter.update(readInterval);
+                    });
+
+            logger.info(countedFilter.getSummaryLine());
+
+        }
     }
 
     @Override
