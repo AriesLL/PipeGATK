@@ -1,2 +1,2 @@
 # PipeGATK
-This is the trial to optimize the performance for GATK
+This is the repo to optimize the performance for GATK4
