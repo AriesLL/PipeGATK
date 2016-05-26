@@ -8,9 +8,7 @@ import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.programgroups.ReadProgramGroup;
-import org.broadinstitute.hellbender.engine.FeatureContext;
-import org.broadinstitute.hellbender.engine.ReadWalker;
-import org.broadinstitute.hellbender.engine.ReferenceContext;
+import org.broadinstitute.hellbender.engine.*;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.tools.ApplyBQSRArgumentCollection;
@@ -77,26 +75,124 @@ public final class ApplyBQSR extends ReadWalker{
         Boolean runMyCode = true;
 
 
+        class ApplyBqsrProducer implements Runnable {   //to produce the new read and transform
+            private GATKReadCircularBuffer buffer;
+            private Iterator<GATKRead> iterator;
+            private ProgressMeter progressMeter;
+            private ReadTransformer transform;
+
+            ApplyBqsrProducer(GATKReadCircularBuffer buffer,
+                              final Iterator<GATKRead> iterator,
+                              ProgressMeter progressMeter,
+                              ReadTransformer transform
+                              ){
+                this.buffer = buffer;
+                this.iterator = iterator;
+                this.progressMeter = progressMeter;
+                this.transform = transform;
+
+            }
+             public void run(){
+                 long counter = 0;
+
+                 while(iterator.hasNext())
+                 {
+                     GATKRead read = iterator.next();
+                     final SimpleInterval readInterval = getReadInterval(read);
+                     progressMeter.update(readInterval);
+                     GATKRead transformRead = transform.apply(read);
+
+                     try{
+                         buffer.put(transformRead);
+                         counter++;
+                     }
+                     catch (InterruptedException e){
+                         logger.info("producer exception");
+                     }
+                 }
+                 try{
+                     buffer.put(null);
+                     counter ++;
+                     logger.info("transform reads number: " + counter);
+                 }catch(InterruptedException e){
+                     logger.info("producer exception");
+                 }
+
+             }
+        }
+
+        class ApplyBqsrConsumer implements Runnable {
+            private SAMFileGATKReadWriter outputWriter;
+            private GATKReadCircularBuffer buffer;
+
+            ApplyBqsrConsumer(
+                    SAMFileGATKReadWriter outputWriter,
+                    GATKReadCircularBuffer buffer
+            ){
+                this.outputWriter = outputWriter;
+                this.buffer = buffer;
+            }
+            public void run(){
+                long counter = 0;
+                try{
+                    while(true){
+                        GATKRead transformRead = buffer.take();
+                        counter ++;
+                        if(transformRead == null) break;
+                        outputWriter.addRead(transformRead);
+                    }
+
+                }catch (InterruptedException e){
+                    logger.info("consumer exception");
+
+                }
+                logger.info("consumer process number: " + counter);
+
+            }
+        }
+
         if(MyToolName.equals(str) && runMyCode) {
             //ReadTransformer transform;
             System.out.println("Hello World start to run modified ApplyBQSR code");
-            Iterator<GATKRead> iter  = this.reads.iterator();
-            long counter = 0;
+            final Iterator<GATKRead> iter  = this.reads.iterator();
+            //long counter = 0;
+
+            GATKReadCircularBuffer buffer = new GATKReadCircularBuffer();
+            ApplyBqsrConsumer consumer = new ApplyBqsrConsumer(outputWriter, buffer);
+            ApplyBqsrProducer producer = new ApplyBqsrProducer(buffer, iter, progressMeter, transform);
+
+            Thread threadProducer = new Thread(producer);
+            Thread threadConsumer = new Thread(consumer);
+            threadProducer.start();
+            threadConsumer.start();
+            try{
+                threadProducer.join();
+                threadConsumer.join();
+            }catch(InterruptedException e)
+            {
+                logger.info("Exception in ApplyBQSR thread join");
+            }
+/*
             while(iter.hasNext())
             {
-                counter ++;
+                //counter ++;
                 GATKRead read = iter.next();
                 final SimpleInterval readInterval = getReadInterval(read);
-                apply(read,
-                        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
-                        new FeatureContext(features, readInterval));
-                //
-                //GATKRead transformRead =transform.apply(read);
-                //outputWriter.addRead(transformRead);
+                //apply(read,
+                //        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
+                //        new FeatureContext(features, readInterval));
+                // modify apply
+                GATKRead transformRead =transform.apply(read);
+                outputWriter.addRead(transformRead);
+
+
                 progressMeter.update(readInterval);
 
             }
-            System.out.println(counter);
+*/
+
+
+            //System.out.println(counter);
             //System.out.println("test hasNext: " + iter.hasNext());
             logger.info(countedFilter.getSummaryLine());
 
