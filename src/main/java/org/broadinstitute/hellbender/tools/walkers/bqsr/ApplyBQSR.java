@@ -64,6 +64,9 @@ public final class ApplyBQSR extends ReadWalker{
     //pp modify
     @Override
     public void traverse() {
+
+        System.out.println("use Producer Consumer " + bqsrArgs.useProducerConsumer);
+
         final CountingReadFilter countedFilter = disable_all_read_filters ?
                 new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS ) :
                 makeReadFilter();
@@ -154,6 +157,7 @@ public final class ApplyBQSR extends ReadWalker{
         if(MyToolName.equals(str) && runMyCode) {
             //ReadTransformer transform;
             System.out.println("Hello World start to run modified ApplyBQSR code");
+            System.out.println("test sleep count, change the sleep time");
             final Iterator<GATKRead> iter  = this.reads.iterator();
             //long counter = 0;
 
@@ -190,10 +194,14 @@ public final class ApplyBQSR extends ReadWalker{
 
             }
 */
-
+            long waitCount = buffer.countConsumer + buffer.countProducer;
 
             //System.out.println(counter);
             //System.out.println("test hasNext: " + iter.hasNext());
+            System.out.println("wait Count Producer: "+ buffer.countProducer);
+            System.out.println("wait Count Consumer: "+ buffer.countConsumer);
+            System.out.println("wait Count Total: "+ waitCount);
+
             logger.info(countedFilter.getSummaryLine());
 
         }

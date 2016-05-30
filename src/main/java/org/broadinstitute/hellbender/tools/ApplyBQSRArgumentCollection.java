@@ -9,6 +9,8 @@ import org.broadinstitute.hellbender.utils.QualityUtils;
 public class ApplyBQSRArgumentCollection extends ApplyBQSRUniqueArgumentCollection {
     private static final long serialVersionUID = 1L;
 
+    @Argument(fullName = "useProducerConsumer", shortName = "usePC", doc = "use Producer or Consumer", optional = true)
+    public Boolean useProducerConsumer = false;
     /**
      * This flag tells GATK not to modify quality scores less than this value. Instead they will be written out unmodified in the recalibrated BAM file.
      * In general it's unsafe to change qualities scores below < 6, since base callers use these values to indicate random or bad bases.

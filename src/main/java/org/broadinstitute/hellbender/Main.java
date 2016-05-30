@@ -61,6 +61,8 @@ public class Main {
      *
      */
     public Object instanceMain(final String[] args, final List<String> packageList, final String commandLineName) {
+        System.out.println(Arrays.toString(packageList.toArray()));
+
         final CommandLineProgram program = extractCommandLineProgram(args, packageList, commandLineName);
         if (null == program) return null; // no program found!
         // we can lop off the first two arguments but it requires an array copy or alternatively we could update CLP to remove them
@@ -81,6 +83,10 @@ public class Main {
      */
     public static void main(final String[] args) {
         try {
+
+            //System.out.println(Arrays.toString(args));
+
+
             final Object result = new Main().instanceMain(args, getPackageList(), "");
             if (result != null) {
               System.out.println("Tool returned:\n" + result);

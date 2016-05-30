@@ -9,17 +9,24 @@ public class GATKReadCircularBuffer {
 
     private GATKRead[] buffer;
     private volatile int head, tail;
-    private static final int SIZE = 1000;
+    private static final int SIZE = 100000;
+    public long countConsumer;
+    public long countProducer;
 
     public GATKReadCircularBuffer() {
         buffer = new GATKRead[SIZE];
         head = 0;
         tail = 0;
+        countConsumer = 0;
+        countProducer = 0;
     }
 
     public GATKRead take() throws InterruptedException {
         while (head == tail) { // empty
-            Thread.sleep(1);
+
+            countConsumer ++;
+            Thread.sleep(5);
+            //Thread.sleep(0,1000);
         }
         GATKRead e = buffer[tail];
         buffer[tail] = null;
@@ -29,7 +36,10 @@ public class GATKReadCircularBuffer {
 
     public void put(GATKRead m) throws InterruptedException {
         while (inc(head) == tail) { // full
-            Thread.sleep(1);
+
+            countProducer++;
+            Thread.sleep(5);
+            //Thread.sleep(0,1000);
         }
         buffer[head] = m;
         head = inc(head);
