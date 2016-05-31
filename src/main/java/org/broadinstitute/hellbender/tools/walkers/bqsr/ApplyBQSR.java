@@ -148,8 +148,7 @@ public final class ApplyBQSR extends ReadWalker {
         System.out.println("disable_all_read_filters " + disable_all_read_filters);
 
         if (bqsrArgs.useProducerConsumer) {
-            //if(bqsrArgs.useProducerConsumer)
-            //{
+
             System.out.println("use Producer Consumer " + bqsrArgs.useProducerConsumer);
 
 
@@ -209,7 +208,11 @@ public final class ApplyBQSR extends ReadWalker {
         } else {
             //original code
             //System.out.println(MyToolName+" show");
-            System.out.println("original flow");
+
+
+            System.out.println("original flow in while form");
+
+            /*  original code
             StreamSupport.stream(reads.spliterator(), false)
                     .filter(countedFilter)
                     .forEach(read -> {
@@ -220,6 +223,27 @@ public final class ApplyBQSR extends ReadWalker {
 
                         progressMeter.update(readInterval);
                     });
+                    */
+            final Iterator<GATKRead> iter = this.reads.iterator();
+            while(iter.hasNext())
+            {
+                //counter ++;
+                GATKRead read = iter.next();
+
+                if(countedFilter.test(read)) {
+                    final SimpleInterval readInterval = getReadInterval(read);
+                    //apply(read,
+                    //        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
+                    //        new FeatureContext(features, readInterval));
+                    // modify apply
+                    GATKRead transformRead = transform.apply(read);
+                    outputWriter.addRead(transformRead);
+
+
+                    progressMeter.update(readInterval);
+                }
+
+            }
 
             logger.info(countedFilter.getSummaryLine());
 
