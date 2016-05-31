@@ -177,24 +177,7 @@ public final class ApplyBQSR extends ReadWalker {
             } catch (InterruptedException e) {
                 logger.info("Exception in ApplyBQSR thread join");
             }
-/*
-            while(iter.hasNext())
-            {
-                //counter ++;
-                GATKRead read = iter.next();
-                final SimpleInterval readInterval = getReadInterval(read);
-                //apply(read,
-                //        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
-                //        new FeatureContext(features, readInterval));
-                // modify apply
-                GATKRead transformRead =transform.apply(read);
-                outputWriter.addRead(transformRead);
 
-
-                progressMeter.update(readInterval);
-
-            }
-*/
             long waitCount = buffer.countConsumer + buffer.countProducer;
 
             //System.out.println(counter);
@@ -232,14 +215,8 @@ public final class ApplyBQSR extends ReadWalker {
 
                 if(countedFilter.test(read)) {
                     final SimpleInterval readInterval = getReadInterval(read);
-                    //apply(read,
-                    //        new ReferenceContext(reference, readInterval), // Will create an empty ReferenceContext if reference or readInterval == null
-                    //        new FeatureContext(features, readInterval));
-                    // modify apply
                     GATKRead transformRead = transform.apply(read);
                     outputWriter.addRead(transformRead);
-
-
                     progressMeter.update(readInterval);
                 }
 
