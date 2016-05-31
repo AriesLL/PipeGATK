@@ -29,11 +29,11 @@ import java.util.stream.StreamSupport;
         oneLineSummary = "Applies the BQSR table to the input SAM/BAM/CRAM",
         programGroup = ReadProgramGroup.class
 )
-public final class ApplyBQSR extends ReadWalker{
+public final class ApplyBQSR extends ReadWalker {
 
     private static final Logger logger = LogManager.getLogger(ApplyBQSR.class);
 
-    @Argument(fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME, doc="Write output to this file")
+    @Argument(fullName = StandardArgumentDefinitions.OUTPUT_LONG_NAME, shortName = StandardArgumentDefinitions.OUTPUT_SHORT_NAME, doc = "Write output to this file")
     public File OUTPUT;
 
     /**
@@ -41,7 +41,7 @@ public final class ApplyBQSR extends ReadWalker{
      * The covariates tables are produced by the BaseRecalibrator tool.
      * Please be aware that you should only run recalibration with the covariates file created on the same input bam(s).
      */
-    @Argument(fullName=StandardArgumentDefinitions.BQSR_TABLE_LONG_NAME, shortName=StandardArgumentDefinitions.BQSR_TABLE_SHORT_NAME, doc="Input covariates table file for base quality score recalibration")
+    @Argument(fullName = StandardArgumentDefinitions.BQSR_TABLE_LONG_NAME, shortName = StandardArgumentDefinitions.BQSR_TABLE_SHORT_NAME, doc = "Input covariates table file for base quality score recalibration")
     public File BQSR_RECAL_FILE;
 
     /**
@@ -49,7 +49,7 @@ public final class ApplyBQSR extends ReadWalker{
      */
     @ArgumentCollection
     public ApplyBQSRArgumentCollection bqsrArgs = new ApplyBQSRArgumentCollection();
-    
+
     private SAMFileGATKReadWriter outputWriter;
 
     private ReadTransformer transform;
@@ -65,18 +65,6 @@ public final class ApplyBQSR extends ReadWalker{
     @Override
     public void traverse() {
 
-        System.out.println("use Producer Consumer " + bqsrArgs.useProducerConsumer);
-
-        final CountingReadFilter countedFilter = disable_all_read_filters ?
-                new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS ) :
-                makeReadFilter();
-        System.out.println("disable_all_read_filters " + disable_all_read_filters);
-
-        //pp Modify
-        String MyToolName = getClass().getSimpleName();
-        String str = "ApplyBQSR";
-        Boolean runMyCode = true;
-
 
         class ApplyBqsrProducer implements Runnable {   //to produce the new read and transform
             private GATKReadCircularBuffer buffer;
@@ -88,40 +76,39 @@ public final class ApplyBQSR extends ReadWalker{
                               final Iterator<GATKRead> iterator,
                               ProgressMeter progressMeter,
                               ReadTransformer transform
-                              ){
+            ) {
                 this.buffer = buffer;
                 this.iterator = iterator;
                 this.progressMeter = progressMeter;
                 this.transform = transform;
 
             }
-             public void run(){
-                 long counter = 0;
 
-                 while(iterator.hasNext())
-                 {
-                     GATKRead read = iterator.next();
-                     final SimpleInterval readInterval = getReadInterval(read);
-                     progressMeter.update(readInterval);
-                     GATKRead transformRead = transform.apply(read);
+            public void run() {
+                long counter = 0;
 
-                     try{
-                         buffer.put(transformRead);
-                         counter++;
-                     }
-                     catch (InterruptedException e){
-                         logger.info("producer exception");
-                     }
-                 }
-                 try{
-                     buffer.put(null);
-                     counter ++;
-                     logger.info("transform reads number: " + counter);
-                 }catch(InterruptedException e){
-                     logger.info("producer exception");
-                 }
+                while (iterator.hasNext()) {
+                    GATKRead read = iterator.next();
+                    final SimpleInterval readInterval = getReadInterval(read);
+                    progressMeter.update(readInterval);
+                    GATKRead transformRead = transform.apply(read);
 
-             }
+                    try {
+                        buffer.put(transformRead);
+                        counter++;
+                    } catch (InterruptedException e) {
+                        logger.info("producer exception");
+                    }
+                }
+                try {
+                    buffer.put(null);
+                    counter++;
+                    logger.info("transform reads number: " + counter);
+                } catch (InterruptedException e) {
+                    logger.info("producer exception");
+                }
+
+            }
         }
 
         class ApplyBqsrConsumer implements Runnable {
@@ -131,21 +118,22 @@ public final class ApplyBQSR extends ReadWalker{
             ApplyBqsrConsumer(
                     SAMFileGATKReadWriter outputWriter,
                     GATKReadCircularBuffer buffer
-            ){
+            ) {
                 this.outputWriter = outputWriter;
                 this.buffer = buffer;
             }
-            public void run(){
+
+            public void run() {
                 long counter = 0;
-                try{
-                    while(true){
+                try {
+                    while (true) {
                         GATKRead transformRead = buffer.take();
-                        counter ++;
-                        if(transformRead == null) break;
+                        counter++;
+                        if (transformRead == null) break;
                         outputWriter.addRead(transformRead);
                     }
 
-                }catch (InterruptedException e){
+                } catch (InterruptedException e) {
                     logger.info("consumer exception");
 
                 }
@@ -154,11 +142,26 @@ public final class ApplyBQSR extends ReadWalker{
             }
         }
 
-        if(MyToolName.equals(str) && runMyCode) {
+        final CountingReadFilter countedFilter = disable_all_read_filters ?
+                new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS) :
+                makeReadFilter();
+        System.out.println("disable_all_read_filters " + disable_all_read_filters);
+
+        if (bqsrArgs.useProducerConsumer) {
+            //if(bqsrArgs.useProducerConsumer)
+            //{
+            System.out.println("use Producer Consumer " + bqsrArgs.useProducerConsumer);
+
+
+            //pp Modify
+            String MyToolName = getClass().getSimpleName();
+            String str = "ApplyBQSR";
+
+
             //ReadTransformer transform;
             System.out.println("Hello World start to run modified ApplyBQSR code");
             System.out.println("test sleep count, change the sleep time");
-            final Iterator<GATKRead> iter  = this.reads.iterator();
+            final Iterator<GATKRead> iter = this.reads.iterator();
             //long counter = 0;
 
             GATKReadCircularBuffer buffer = new GATKReadCircularBuffer();
@@ -169,11 +172,10 @@ public final class ApplyBQSR extends ReadWalker{
             Thread threadConsumer = new Thread(consumer);
             threadProducer.start();
             threadConsumer.start();
-            try{
+            try {
                 threadProducer.join();
                 threadConsumer.join();
-            }catch(InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 logger.info("Exception in ApplyBQSR thread join");
             }
 /*
@@ -198,16 +200,15 @@ public final class ApplyBQSR extends ReadWalker{
 
             //System.out.println(counter);
             //System.out.println("test hasNext: " + iter.hasNext());
-            System.out.println("wait Count Producer: "+ buffer.countProducer);
-            System.out.println("wait Count Consumer: "+ buffer.countConsumer);
-            System.out.println("wait Count Total: "+ waitCount);
+            System.out.println("wait Count Producer: " + buffer.countProducer);
+            System.out.println("wait Count Consumer: " + buffer.countConsumer);
+            System.out.println("wait Count Total: " + waitCount);
 
             logger.info(countedFilter.getSummaryLine());
 
-        }
-        else{
+        } else {
             //original code
-            System.out.println(MyToolName+"show");
+            //System.out.println(MyToolName+" show");
             System.out.println("original flow");
             StreamSupport.stream(reads.spliterator(), false)
                     .filter(countedFilter)
@@ -226,7 +227,7 @@ public final class ApplyBQSR extends ReadWalker{
     }
 
     @Override
-    public void apply( GATKRead read, ReferenceContext referenceContext, FeatureContext featureContext ) {
+    public void apply(GATKRead read, ReferenceContext referenceContext, FeatureContext featureContext) {
         //pp modify
         GATKRead transformRead = transform.apply(read);
         outputWriter.addRead(transformRead);
@@ -236,7 +237,7 @@ public final class ApplyBQSR extends ReadWalker{
 
     @Override
     public void closeTool() {
-        if ( outputWriter != null ) {
+        if (outputWriter != null) {
             outputWriter.close();
         }
     }

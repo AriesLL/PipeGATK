@@ -9,6 +9,10 @@ import org.broadinstitute.hellbender.utils.QualityUtils;
 public class ApplyBQSRArgumentCollection extends ApplyBQSRUniqueArgumentCollection {
     private static final long serialVersionUID = 1L;
 
+    /** pp modify
+    *   This flag tells GATK to use Producer Consumer or not
+     */
+
     @Argument(fullName = "useProducerConsumer", shortName = "usePC", doc = "use Producer or Consumer", optional = true)
     public Boolean useProducerConsumer = false;
     /**

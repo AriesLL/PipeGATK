@@ -61,7 +61,7 @@ public class Main {
      *
      */
     public Object instanceMain(final String[] args, final List<String> packageList, final String commandLineName) {
-        System.out.println(Arrays.toString(packageList.toArray()));
+        //System.out.println(Arrays.toString(packageList.toArray()));
 
         final CommandLineProgram program = extractCommandLineProgram(args, packageList, commandLineName);
         if (null == program) return null; // no program found!
@@ -84,7 +84,7 @@ public class Main {
     public static void main(final String[] args) {
         try {
 
-            //System.out.println(Arrays.toString(args));
+            System.out.println("Print Arguments: "+Arrays.toString(args));
 
 
             final Object result = new Main().instanceMain(args, getPackageList(), "");
