@@ -193,9 +193,10 @@ public final class ApplyBQSR extends ReadWalker {
             //System.out.println(MyToolName+" show");
 
 
-            System.out.println("original flow in while form");
+            System.out.println("original flow in while form @");
 
-            /*  original code
+            /*
+            //  original code
             StreamSupport.stream(reads.spliterator(), false)
                     .filter(countedFilter)
                     .forEach(read -> {
@@ -206,7 +207,8 @@ public final class ApplyBQSR extends ReadWalker {
 
                         progressMeter.update(readInterval);
                     });
-                    */
+            */
+            ///*
             final Iterator<GATKRead> iter = this.reads.iterator();
             while(iter.hasNext())
             {
@@ -221,6 +223,7 @@ public final class ApplyBQSR extends ReadWalker {
                 }
 
             }
+            //*/
 
             logger.info(countedFilter.getSummaryLine());
 
