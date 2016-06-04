@@ -225,7 +225,7 @@ public final class ProgressMeter {
         }
         this.stopped = true;
         currentTimeMs = timeFunction.getAsLong();
-        logger.info(String.format("Traversal complete. Processed %d total records in %.1f minutes.", numRecordsProcessed, elapsedTimeInMinutes()));
+        logger.info(String.format("Traversal complete. Processed %d total records in %.1f seconds.", numRecordsProcessed, elapsedTimeInSeconds()));
     }
 
     /**
@@ -256,6 +256,9 @@ public final class ProgressMeter {
         return (currentTimeMs - startTimeMs) / (double)MILLISECONDS_PER_MINUTE;
     }
 
+    double elapsedTimeInSeconds() {
+        return (currentTimeMs - startTimeMs) / (double)MILLISECONDS_PER_SECOND;
+    }
     /**
      * @return the number of seconds that have elapsed since our last progress output to the logger
      *

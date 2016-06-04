@@ -132,6 +132,7 @@ public final class ApplyBQSR extends ReadWalker {
                 this.transform = transform;
                 this.outputWriter = outputWriter;
                 this.buffer = buffer;
+                System.out.println("in Consumer print usePC " + bqsrArgs.useProducerConsumer);
             }
 
             public void run() {
