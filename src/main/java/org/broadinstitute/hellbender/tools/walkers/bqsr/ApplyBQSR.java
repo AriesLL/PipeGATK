@@ -22,7 +22,10 @@ import org.broadinstitute.hellbender.utils.read.SAMFileGATKReadWriter;
 import org.mortbay.jetty.AbstractGenerator;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.StreamSupport;
 
 @CommandLineProgramProperties(
@@ -66,6 +69,18 @@ public final class ApplyBQSR extends ReadWalker {
     @Override
     public void traverse() {
 
+        class TransformCalculator implements Callable<GATKRead> {
+            private GATKRead read;
+            private ReadTransformer transform;
+            public TransformCalculator (GATKRead read, ReadTransformer transform){
+                this.read = read;
+                this.transform = transform;
+            }
+            public GATKRead call() throws Exception {
+                GATKRead transformRead = transform.apply(read);
+                return transformRead;
+            }
+        }
 
         class ApplyBqsrProducer implements Runnable {   //to produce the new read and transform
             private GATKReadCircularBuffer buffer;
@@ -133,27 +148,85 @@ public final class ApplyBQSR extends ReadWalker {
                 this.outputWriter = outputWriter;
                 this.buffer = buffer;
                 System.out.println("in Consumer print usePC " + bqsrArgs.useProducerConsumer);
+                System.out.println("in Consumer print useTP " + bqsrArgs.useThreadPool);
             }
 
             public void run() {
-                long counter = 0;
-                try {
-                    while (true) {
-                        GATKRead takeRead = buffer.take();
-                        if (takeRead == null) break;
-                        GATKRead transformRead = transform.apply(takeRead);
-                        //GATKRead transformRead = buffer.take();
-                        counter++;
 
-                        outputWriter.addRead(transformRead);
+                if (bqsrArgs.useThreadPool == false) {
+                    long counter = 0;
+                    try {
+                        while (true) {
+                            GATKRead takeRead = buffer.take();
+                            if (takeRead == null) break;
+                            GATKRead transformRead = transform.apply(takeRead);
+                            //GATKRead transformRead = buffer.take();
+                            counter++;
+
+                            outputWriter.addRead(transformRead);
+                        }
+
+                    } catch (InterruptedException e) {
+                        logger.info("consumer exception");
+
                     }
+                    logger.info("consumer process number: " + counter);
 
-                } catch (InterruptedException e) {
-                    logger.info("consumer exception");
 
+            } else {
+                    long counter = 0;
+                    int ThreadNum = bqsrArgs.numTP;
+                    System.out.println("num of threads in Thread Pool " + ThreadNum);
+                    ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(ThreadNum);
+                    ArrayList<BQSRReadTransformer> transformList = new ArrayList<>();
+                    for(int i = 0; i < ThreadNum; i++) {
+                        BQSRReadTransformer transformOne = new BQSRReadTransformer(getHeaderForReads(), BQSR_RECAL_FILE, bqsrArgs);
+                        transformList.add(transformOne);
+                    }
+                    try {
+                        ArrayList<Future<GATKRead>> resultList = new ArrayList<>();
+
+                        outerloop:
+                        while (true) {
+                            // needs executor
+                            resultList.clear();
+
+                            int validCount = 0;
+                            for (int i = 0; i < ThreadNum; i++) {
+                                GATKRead takeRead = buffer.take();
+                                if (takeRead == null) break outerloop;
+                                TransformCalculator calculator = new TransformCalculator(takeRead, transformList.get(i));
+                                Future<GATKRead> result = executor.submit(calculator);
+                                resultList.add(result);
+                                validCount++;
+
+
+                                //GATKRead transformRead = transform.apply(takeRead);
+                                counter++;
+                            }
+                            //System.out.println("validCount " + validCount);
+                            //System.out.println("resultList Size: " + resultList.size());
+                            for (int i = 0; i < validCount; i++) {
+                                try {
+                                    outputWriter.addRead(resultList.get(i).get());
+                                } catch (InterruptedException | ExecutionException e) {
+                                    logger.info("consumer exception in ThreadPool");
+                                    e.printStackTrace();
+                                }
+
+                            }
+
+                            //outputWriter.addRead(transformRead);
+
+                        }
+
+                    } catch (InterruptedException e) {
+                        logger.info("consumer exception now");
+
+                    }
+                    executor.shutdown();
+                    logger.info("consumer process number: " + counter);
                 }
-                logger.info("consumer process number: " + counter);
-
             }
         }
 
