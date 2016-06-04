@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.walkers.bqsr;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.util.SystemClock;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
@@ -70,17 +71,20 @@ public final class ApplyBQSR extends ReadWalker {
             private GATKReadCircularBuffer buffer;
             private Iterator<GATKRead> iterator;
             private ProgressMeter progressMeter;
-            private ReadTransformer transform;
+
+            private CountingReadFilter countedFilter;
 
             ApplyBqsrProducer(GATKReadCircularBuffer buffer,
                               final Iterator<GATKRead> iterator,
                               ProgressMeter progressMeter,
-                              ReadTransformer transform
+                              CountingReadFilter countedFilter
+
             ) {
                 this.buffer = buffer;
                 this.iterator = iterator;
                 this.progressMeter = progressMeter;
-                this.transform = transform;
+                this.countedFilter = countedFilter;
+
 
             }
 
@@ -89,18 +93,22 @@ public final class ApplyBQSR extends ReadWalker {
 
                 while (iterator.hasNext()) {
                     GATKRead read = iterator.next();
-                    final SimpleInterval readInterval = getReadInterval(read);
-                    progressMeter.update(readInterval);
-                    GATKRead transformRead = transform.apply(read);
+                    if(countedFilter.test(read)) {
+                        final SimpleInterval readInterval = getReadInterval(read);
+                        progressMeter.update(readInterval);
+                        //GATKRead transformRead = transform.apply(read);
 
-                    try {
-                        buffer.put(transformRead);
-                        counter++;
-                    } catch (InterruptedException e) {
-                        logger.info("producer exception");
+                        try {
+                            //buffer.put(transformRead);
+                            buffer.put(read);
+                            counter++;
+                        } catch (InterruptedException e) {
+                            logger.info("producer exception");
+                        }
                     }
                 }
                 try {
+                    //mark the end of put
                     buffer.put(null);
                     counter++;
                     logger.info("transform reads number: " + counter);
@@ -112,13 +120,16 @@ public final class ApplyBQSR extends ReadWalker {
         }
 
         class ApplyBqsrConsumer implements Runnable {
+            private ReadTransformer transform;
             private SAMFileGATKReadWriter outputWriter;
             private GATKReadCircularBuffer buffer;
 
             ApplyBqsrConsumer(
+                    ReadTransformer transform,
                     SAMFileGATKReadWriter outputWriter,
                     GATKReadCircularBuffer buffer
             ) {
+                this.transform = transform;
                 this.outputWriter = outputWriter;
                 this.buffer = buffer;
             }
@@ -127,9 +138,12 @@ public final class ApplyBQSR extends ReadWalker {
                 long counter = 0;
                 try {
                     while (true) {
-                        GATKRead transformRead = buffer.take();
+                        GATKRead takeRead = buffer.take();
+                        if (takeRead == null) break;
+                        GATKRead transformRead = transform.apply(takeRead);
+                        //GATKRead transformRead = buffer.take();
                         counter++;
-                        if (transformRead == null) break;
+
                         outputWriter.addRead(transformRead);
                     }
 
@@ -147,10 +161,19 @@ public final class ApplyBQSR extends ReadWalker {
                 makeReadFilter();
         System.out.println("disable_all_read_filters " + disable_all_read_filters);
 
+
+
+
+
         if (bqsrArgs.useProducerConsumer) {
 
             System.out.println("use Producer Consumer " + bqsrArgs.useProducerConsumer);
-
+            if(bqsrArgs.useThreadPool) {
+                System.out.println("use Thread Pool for transform " + bqsrArgs.useThreadPool);
+            }
+            else{
+                System.out.println("use Thread Pool for transform " + bqsrArgs.useThreadPool);
+            }
 
             //pp Modify
             String MyToolName = getClass().getSimpleName();
@@ -164,8 +187,8 @@ public final class ApplyBQSR extends ReadWalker {
             //long counter = 0;
 
             GATKReadCircularBuffer buffer = new GATKReadCircularBuffer();
-            ApplyBqsrConsumer consumer = new ApplyBqsrConsumer(outputWriter, buffer);
-            ApplyBqsrProducer producer = new ApplyBqsrProducer(buffer, iter, progressMeter, transform);
+            ApplyBqsrConsumer consumer = new ApplyBqsrConsumer(transform, outputWriter, buffer);
+            ApplyBqsrProducer producer = new ApplyBqsrProducer(buffer, iter, progressMeter, countedFilter);
 
             Thread threadProducer = new Thread(producer);
             Thread threadConsumer = new Thread(consumer);
@@ -210,22 +233,70 @@ public final class ApplyBQSR extends ReadWalker {
             */
             ///*
             final Iterator<GATKRead> iter = this.reads.iterator();
+
+            long timeNext = 0;
+            long timeCounterFilter = 0;
+            long timeTransform = 0;
+
+            long timeAddRead = 0;
+            long timeProgress = 0;
+
+            long startNext;
+            long startCounterFilter;
+            long startTransform;
+            long startAddRead;
+            long startProgress;
+            long startEnd;
+
             while(iter.hasNext())
             {
                 //counter ++;
+
+                startNext = System.nanoTime();
+
                 GATKRead read = iter.next();
 
+                startCounterFilter = System.nanoTime();
+
+
+
                 if(countedFilter.test(read)) {
+
+                    startTransform = System.nanoTime();
+
                     final SimpleInterval readInterval = getReadInterval(read);
                     GATKRead transformRead = transform.apply(read);
+
+                    startAddRead = System.nanoTime();
+
                     outputWriter.addRead(transformRead);
+
+                    startProgress = System.nanoTime();
+
                     progressMeter.update(readInterval);
+
+                    startEnd = System.nanoTime();
+
+                    //update timer
+                    timeCounterFilter += startTransform - startCounterFilter;
+                    timeTransform += startAddRead - startTransform;
+                    timeAddRead += startProgress - startAddRead;
+                    timeProgress += startEnd - startProgress;
+
                 }
+
+                timeNext += startCounterFilter - startNext;
 
             }
             //*/
 
             logger.info(countedFilter.getSummaryLine());
+
+            logger.info("total timeNext " + timeNext);
+            logger.info("total timeCounterFilter " + timeCounterFilter);
+            logger.info("total timeTransform "+timeTransform);
+            logger.info("total timeAddRead " + timeAddRead);
+            logger.info("total timeProgress " + timeProgress);
 
         }
     }
